@@ -64,7 +64,7 @@ window.openValModal = function(index = null) {
   const isEdit = index !== null;
   const item = isEdit ? currentValData[index] : {};
   
-  document.getElementById('valModalTitle').innerText = (isEdit ? 'Edit ' : 'Add ') + currentValType;
+  document.getElementById('valModalTitle').innerText = (isEdit ? i18n('val_edit_prefix') : i18n('val_add_prefix')) + currentValType;
   
   let formHtml = `<input type="hidden" id="editIdx" value="${index}">`;
   config.keys.forEach((key, i) => {
@@ -103,7 +103,7 @@ window.saveValItem = function() {
       refreshValTable();
     })
     .withFailureHandler(function(err) {
-      alert("Error: " + err.message);
+      alert(i18n('error_prefix') + err.message);
     })
     .updateValidationItem(currentValType, oldName, newData);
 };

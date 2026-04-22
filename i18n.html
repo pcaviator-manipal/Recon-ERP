@@ -3,10 +3,10 @@ const translations = {
   en: {
     title: "RECON ERP",
     m_dashboard: "Dashboard",
-    m_requirements: "Requirements", // NEW Parent
+    m_requirements: "Requirements",
     m_create_req: "Create New",
-    m_view_req: "View History",      // NEW Submenu
-    m_edit_req: "Edit / Manage",    // NEW Submenu
+    m_view_req: "View History",
+    m_edit_req: "Edit / Manage",
     m_procurement: "Procurement",
     m_create_quote: "Create Quote",
     m_create_po: "Create PO",
@@ -19,7 +19,7 @@ const translations = {
     qty: "Quantity",
     add_item: "Add Item",
     submit_req: "Submit Requirement",
-    preview_email: "Preview Email",  // FIXED: Missing translation
+    preview_email: "Preview Email",
     loading: "Loading...",
     d_pending_req: "Pending Requirements",
     d_pending_po: "POs to Authorize",
@@ -74,20 +74,63 @@ const translations = {
     p_all_cats: "All Categories",
     p_all_subcats: "All Sub Categories",
     p_all_brands: "All Brands",
+    p_all_suppliers: "All Suppliers",
     modal_save: "Save Changes",
     p_footer_info: "Double-click any row to quickly edit product details.",
     m_admin: "Administration",
-  m_sites: "Sites / Faenas",
-  m_currency: "Currencies",
-    
+    m_sites: "Sites / Faenas",
+    m_currency: "Currencies",
+    no_recent_requests: "No recent requests found",
+    search_order_placeholder: "Search Order, Geo, P/N, or Desc...",
+    edit: "Edit",
+    export: "Export",
+    all_sites: "All Sites (Faenas)",
+    all_statuses: "All Statuses",
+    status_pending: "Pending",
+    status_quoted: "Quoted",
+    status_po_created: "PO Created",
+    orders_selected: "Order(s) Selected",
+    click_rows_help: "Click rows to select. Use Ctrl + Click for multiple.",
+    clear_all: "Clear All",
+    date: "Date",
+    faena: "Faena",
+    edit_req_title: "Edit Requirement:",
+    edit_faena_label: "Site (Faena)",
+    add_item_search_label: "Add New Item via Search",
+    add_item_search_placeholder: "Search P/N or Description to add...",
+    add_item_manually: "Add Item Manually",
+    select_one_order: "Select exactly one order to edit",
+    filter_data_first: "Please select or filter data first.",
+    processing: "Processing...",
+    req_min_one_item: "Requirement must have at least one item.",
+    req_updated_prefix: "Requirement #",
+    req_updated_suffix: " updated successfully!",
+    confirm_edit_prefix: "This order is currently '",
+    confirm_edit_suffix: "', not 'Pending'. Are you sure you want to edit it?",
+    export_success_prefix: "✅ Success: ",
+    export_success_suffix: " saved to Exports folder.",
+    sys_error: "System Error: ",
+    error_saving_prefix: "Error saving: ",
+    search_header_label: "Search",
+    cart_header: "Cart",
+    add_btn: "Add",
+    total_label: "Total:",
+    val_subtitle: "Manage validation list",
+    val_add_new: "Add New",
+    val_save: "Save",
+    val_item_detail: "Item Detail",
+    val_edit_prefix: "Edit ",
+    val_add_prefix: "Add ",
+    error_prefix: "Error: ",
+    p_modal_title: "Product Details",
   },
   es: {
     title: "ERP RECON",
     m_dashboard: "Panel de Control",
-    m_requirements: "Requerimientos", // NEW Parent
+    m_requirements: "Requerimientos",
     m_create_req: "Crear Nuevo",
-    m_view_req: "Ver Historial",      // NEW Submenu
-    m_edit_req: "Editar / Gestionar", // NEW Submenu
+    m_view_req: "Ver Historial",
+    m_edit_req: "Editar / Gestionar",
     m_procurement: "Adquisiciones",
     m_create_quote: "Crear Cotización",
     m_create_po: "Crear OC",
@@ -100,7 +143,7 @@ const translations = {
     qty: "Cantidad",
     add_item: "Añadir Item",
     submit_req: "Enviar Requerimiento",
-    preview_email: "Vista Previa",    // FIXED: Missing translation
+    preview_email: "Vista Previa",
     loading: "Cargando...",
     d_pending_req: "Requerimientos Pendientes",
     d_pending_po: "OC por Autorizar",
@@ -155,12 +198,55 @@ const translations = {
     p_all_cats: "Todas las Categorías",
     p_all_subcats: "Todas las Subcategorías",
     p_all_brands: "Todas las Marcas",
+    p_all_suppliers: "Todos los Proveedores",
     modal_save: "Guardar Cambios",
     p_footer_info: "Haga doble clic en cualquier fila para editar rápidamente los detalles del producto.",
     m_admin: "Administración",
-  m_sites: "Faenas / Sitios",
-  m_currency: "Monedas",
-    
+    m_sites: "Faenas / Sitios",
+    m_currency: "Monedas",
+    no_recent_requests: "No hay solicitudes recientes",
+    search_order_placeholder: "Buscar Pedido, Geo, P/N o Descripción...",
+    edit: "Editar",
+    export: "Exportar",
+    all_sites: "Todas las Faenas",
+    all_statuses: "Todos los Estados",
+    status_pending: "Pendiente",
+    status_quoted: "Cotizado",
+    status_po_created: "OC Creada",
+    orders_selected: "Pedido(s) Seleccionado(s)",
+    click_rows_help: "Haz clic en las filas para seleccionar. Usa Ctrl + Clic para múltiples.",
+    clear_all: "Limpiar Todo",
+    date: "Fecha",
+    faena: "Faena",
+    edit_req_title: "Editar Requerimiento:",
+    edit_faena_label: "Faena / Sitio",
+    add_item_search_label: "Agregar Nuevo Ítem via Búsqueda",
+    add_item_search_placeholder: "Buscar P/N o Descripción para agregar...",
+    add_item_manually: "Agregar Ítem Manualmente",
+    select_one_order: "Seleccione exactamente un pedido para editar",
+    filter_data_first: "Por favor seleccione o filtre los datos primero.",
+    processing: "Procesando...",
+    req_min_one_item: "El requerimiento debe tener al menos un ítem.",
+    req_updated_prefix: "Requerimiento #",
+    req_updated_suffix: " actualizado exitosamente!",
+    confirm_edit_prefix: "Este pedido está actualmente '",
+    confirm_edit_suffix: "', no 'Pendiente'. ¿Está seguro que desea editarlo?",
+    export_success_prefix: "✅ Éxito: ",
+    export_success_suffix: " guardado en la carpeta Exports.",
+    sys_error: "Error del Sistema: ",
+    error_saving_prefix: "Error al guardar: ",
+    search_header_label: "Buscar",
+    cart_header: "Carrito",
+    add_btn: "Agregar",
+    total_label: "Total:",
+    val_subtitle: "Administrar lista de validación",
+    val_add_new: "Agregar Nuevo",
+    val_save: "Guardar",
+    val_item_detail: "Detalle del Ítem",
+    val_edit_prefix: "Editar ",
+    val_add_prefix: "Agregar ",
+    error_prefix: "Error: ",
+    p_modal_title: "Detalle del Producto",
   }
 };
 
@@ -177,21 +263,23 @@ function toggleLanguage() {
 }
 
 /**
- * FIXED: This now looks for a <span> inside the element with the data-i18n attribute.
- * This prevents the translation from deleting your <i> icon tags.
+ * Updates all elements with data-i18n and data-i18n-placeholder attributes.
+ * Uses .i18n-label span when present to protect <i> icon tags.
  */
 function updateUI() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     const translation = i18n(key);
-    
-    // TARGET ONLY THE SPAN: This protects your <i> icons!
     const labelSpan = el.querySelector('.i18n-label');
     if (labelSpan) {
       labelSpan.innerText = translation;
     } else {
       el.innerText = translation;
     }
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    el.setAttribute('placeholder', i18n(key));
   });
 }
 </script>
