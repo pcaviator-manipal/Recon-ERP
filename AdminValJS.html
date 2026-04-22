@@ -1,0 +1,110 @@
+<script>
+let currentValType = '';
+let currentValData = [];
+
+// Configuration for each module
+const valConfig = {
+  'Sites': { title: 'Faenas / Sites', cols: ['Name', 'Email', 'Suffix'], keys: ['name', 'email', 'suffix'] },
+  'Categories': { title: 'Categories', cols: ['Name', 'Email'], keys: ['name', 'email'] },
+  'SubCats': { title: 'Sub Categories', cols: ['Name'], keys: ['name'] },
+  'Brands': { title: 'Brands', cols: ['Name'], keys: ['name'] },
+  'Suppliers': { title: 'Suppliers', cols: ['Name', 'Email'], keys: ['name', 'email'] },
+  'Currency': { title: 'Monedas', cols: ['Name', 'Symbol'], keys: ['name', 'symbol'] }
+};
+
+window.initValidationModule = function(type) {
+  currentValType = type;
+  const config = valConfig[type];
+  document.getElementById('valTitle').innerText = config.title;
+  
+  // Build Table Head
+  let headHtml = '<tr>';
+  config.cols.forEach(col => headHtml += `<th>${col}</th>`);
+  headHtml += '<th class="text-end">Actions</th></tr>';
+  document.getElementById('valTableHead').innerHTML = headHtml;
+
+  refreshValTable();
+};
+
+function refreshValTable() {
+  google.script.run.withSuccessHandler(function(data) {
+    // data is the big object from getValidationData()
+    // We pick the array we need (mapped to our keys)
+    const map = { 
+      'Sites': data.sites, 'Categories': data.categories, 
+      'SubCats': data.subCategories, 'Brands': data.brands, 
+      'Suppliers': data.suppliers, 'Currency': data.currencies 
+    };
+    
+    currentValData = map[currentValType] || [];
+    renderValRows();
+  }).getValidationData();
+}
+
+function renderValRows() {
+  const config = valConfig[currentValType];
+  const tbody = document.getElementById('valTableBody');
+  
+  tbody.innerHTML = currentValData.map((item, idx) => {
+    // Handle if item is just a string (for Brands/SubCats) or an object
+    const getItemValue = (key) => typeof item === 'string' ? item : (item[key] || '');
+    
+    let row = '<tr>';
+    config.keys.forEach(key => row += `<td>${getItemValue(key)}</td>`);
+    row += `
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-primary" onclick="openValModal(${idx})"><i class="bi bi-pencil"></i></button>
+      </td></tr>`;
+    return row;
+  }).join('');
+}
+
+window.openValModal = function(index = null) {
+  const config = valConfig[currentValType];
+  const isEdit = index !== null;
+  const item = isEdit ? currentValData[index] : {};
+  
+  document.getElementById('valModalTitle').innerText = (isEdit ? 'Edit ' : 'Add ') + currentValType;
+  
+  let formHtml = `<input type="hidden" id="editIdx" value="${index}">`;
+  config.keys.forEach((key, i) => {
+    const val = typeof item === 'string' ? item : (item[key] || '');
+    formHtml += `
+      <div class="mb-3">
+        <label class="form-label fw-bold">${config.cols[i]}</label>
+        <input type="text" id="val_input_${key}" class="form-control" value="${val}">
+      </div>`;
+  });
+  
+  document.getElementById('valModalBody').innerHTML = formHtml;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('valModal')).show();
+};
+
+window.saveValItem = function() {
+  const config = valConfig[currentValType];
+  const idx = document.getElementById('editIdx').value;
+  
+  // SAFE CHECK: Only look for oldName if we are editing (index is not -1)
+  let oldName = null;
+  if (idx !== "-1" && currentValData[idx]) {
+    const item = currentValData[idx];
+    oldName = (typeof item === 'object') ? item.name : item;
+  }
+
+  const newData = {};
+  config.keys.forEach(key => {
+    const input = document.getElementById('val_input_' + key);
+    newData[key] = input ? input.value : "";
+  });
+
+  google.script.run
+    .withSuccessHandler(function() {
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('valModal')).hide();
+      refreshValTable();
+    })
+    .withFailureHandler(function(err) {
+      alert("Error: " + err.message);
+    })
+    .updateValidationItem(currentValType, oldName, newData);
+};
+</script>

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; }
+    .sidebar { width: 240px; height: 100vh; background: #212529; color: white; position: fixed; }
+    .nav-link { color: #adb5bd; cursor: pointer; transition: 0.3s; padding: 12px 20px; }
+    .nav-link:hover { background: #343a40; color: white; }
+    .nav-link.active { background: #0d6efd; color: white; font-weight: bold; }
+    .main-wrapper { margin-left: 240px; padding: 20px; min-height: 100vh; }
+    #appLoader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  </style>
+
+
+  <script>
+    // --- GLOBAL STATE ---
+    var cachedSites = [];
+    var inventoryCache = [];
+    var localCart = [];
+    var autoSelectedSite = "";
+    var isDataLoaded = false;
+    var currentPayload = {};
+    var currentLang = 'es';  // ✅ INITIALIZE BEFORE USE
+    let selectedOrders = new Set();
+    window.CachedDataVal = null;  // ✅ DECLARE GLOBALLY
+
+
+    // --- SYSTEM INITIALIZATION ---
+    window.onload = function() {
+      // 1. First: Load validation cache
+      loadValidationCacheSync();
+      
+      // 2. Then: Load other data in parallel
+      Promise.all([
+        new Promise(resolve => google.script.run.withSuccessHandler(data => { cachedSites = data; resolve(); }).getSiteData()),
+        new Promise(resolve => google.script.run.withSuccessHandler(data => { inventoryCache = data; resolve(); }).getInventoryData()),
+        new Promise(resolve => google.script.run.withSuccessHandler(site => { autoSelectedSite = site; resolve(); }).getAutoSelectedSite())
+      ]).then(() => {
+        isDataLoaded = true;
+        document.getElementById('appLoader').style.display = 'none';
+        loadModule('Dashboard');
+      });
+    };
+
+
+    // ✅ NEW: Load validation cache synchronously before other modules
+    function loadValidationCacheSync() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          window.CachedDataVal = data;
+          console.log("✅ Validation Cache Loaded");
+        })
+        .withFailureHandler(function(err) {
+          console.error("❌ Failed to load validation cache:", err);
+        })
+        .getValidationData();
+    }
+
+    // --- MODULE LOADING & NAVIGATION ---
+    function loadModule(name) {
+      if (!isDataLoaded && name !== 'Dashboard') {
+        console.warn("Waiting for initial data load...");
+      }
+
+      google.script.run.withSuccessHandler(function(html) {
+        const mainContent = document.getElementById("mainContent");
+        mainContent.innerHTML = html;
+
+        // 1. CREATE REQUIREMENT MODULE
+        if (name === 'CreateReq') {
+          const siteSelect = document.getElementById('siteSelect');
+          if (siteSelect && cachedSites.length > 0) {
+            siteSelect.innerHTML = cachedSites.map(s => 
+              `<option value="${s.name}">${s.name}</option>`
+            ).join('');
+            if (window.autoSelectedSite) siteSelect.value = window.autoSelectedSite;
+          }
+          
+          if (typeof window.updateCartUI === 'function') {
+            window.updateCartUI();
+          }
+          
+          const searchInput = document.getElementById('itemSearch');
+          if (searchInput && typeof window.processSearch === 'function') {
+            searchInput.addEventListener('input', window.processSearch);
+          }
+        }
+
+        // 2. DASHBOARD MODULE
+        if (name === 'Dashboard') {
+          setTimeout(() => {
+            if (typeof window.initDashboard === 'function') window.initDashboard();
+          }, 100);
+        }
+
+        // 3. HISTORY MODULE
+        if (name === 'ViewReq') {
+          if (typeof window.initViewReqModule === 'function') {
+            window.initViewReqModule();
+          }
+        }
+
+        // 4. PRODUCTS MODULE
+        if (name === 'Products') {
+          if (typeof window.initProductsModule === 'function') {
+            window.initProductsModule();
+          }
+        }
+
+        // 5. RFQ MODULE
+        if (name === 'RFQ') {
+          if (typeof window.initRFQModule === 'function') {
+            window.initRFQModule();
+          }
+        }
+
+        // 6. VALIDATION/ADMIN MODULES
+        if (name.startsWith('Val')) {
+          const valType = name.replace('Val', '');
+          if (window.initValidationModule) {
+            window.initValidationModule(valType);
+          } else {
+            console.error("ValidationModule logic not found!");
+          }
+        }
+
+        if (typeof updateUI === 'function') updateUI();
+        
+        // Update Sidebar Active Class
+        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+        const activeLink = document.getElementById('nav-' + name);
+        if (activeLink) activeLink.classList.add('active');
+
+      }).getModuleHtml(name);
+    }
+
+    // Global variable for Validation Data
+window.CachedDataVal = null;
+
+
+  function loadValidationCache() {
+    google.script.run
+      .withSuccessHandler(function(data) {
+        window.CachedDataVal = data;
+        console.log("Validation Cache Loaded");
+        
+        // THIS IS THE KEY: Refresh RFQ dropdowns if the user is already on that tab
+        if (typeof window.initRFQModule === 'function') {
+          window.initRFQModule();
+        }
+        
+        if (typeof populateAllValidationDropdowns === 'function') {
+          populateAllValidationDropdowns();
+        }
+      })
+      .getValidationData();
+  };
+
+    // Call this inside your window.onload or DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() {
+      loadValidationCache();
+  })
+
+    
+
+
+var fullHistory = [];
+var isDataLoaded = true; // Temporary: Set to true to bypass the block if your initial load is failing
+
+window.initDashboard = function() {
+  // These MUST match the IDs in your Dashboard.html
+  const reqCountEl = document.getElementById('dash-req-count');
+  const poCountEl = document.getElementById('dash-po-count');
+  const activityBody = document.getElementById('recent-activity-body');
+
+  // Safety check: if we aren't on the dashboard, stop here
+  if (!reqCountEl) return;
+
+  // Show loading spinner in the requirement count card
+  reqCountEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      const history = data || [];
+      
+      // 1. Calculate Pending (Handles 'Pending' or 'Pendiente')
+      const pendingItems = history.filter(r => 
+        r.estado && r.estado.toString().toLowerCase().includes('pend')
+      );
+      
+      // 2. Update the Counters
+      reqCountEl.innerText = pendingItems.length;
+      
+      // Note: We don't have PO logic yet, so let's set it to 0 or total for now
+      if (poCountEl) poCountEl.innerText = "0";
+
+      // 3. Update the Recent Activity Table
+      if (activityBody) {
+        if (history.length === 0) {
+          activityBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No recent requests found</td></tr>';
+        } else {
+          // Takes the 5 most recent entries
+          activityBody.innerHTML = history.slice(0, 5).map(r => `
+            <tr>
+              <td class="fw-bold">#${r.order}</td>
+              <td class="text-muted">${r.faena}</td>
+              <td>
+                <div class="fw-bold small">${r.pn}</div>
+                <div class="text-muted" style="font-size: 0.75rem;">${r.desc}</div>
+              </td>
+              <td>
+                <span class="badge ${r.estado.toLowerCase().includes('pend') ? 'bg-warning text-dark' : 'bg-success'}">
+                  ${r.estado}
+                </span>
+              </td>
+            </tr>
+          `).join('');
+        }
+      }
+      
+     
+
+      // Re-trigger translation for the newly injected table rows
+      if (typeof updateUI === 'function') updateUI();
+    })
+    .withFailureHandler(function(err) {
+      console.error("Dashboard Load Error:", err);
+      reqCountEl.innerText = "Error";
+    })
+    .getRequirementsHistory();
+};
+
+
+
+// Behavior C: Click Outside
+// Action: Clear selection when clicking the white space of the container
+document.addEventListener('click', function(event) {
+  const tableContainer = document.querySelector('.table-responsive');
+  if (tableContainer && !tableContainer.contains(event.target)) {
+    if (selectedOrders.size > 0) {
+      selectedOrders.clear();
+      window.renderHistoryTable(window.getFilteredData());
+    }
+  }
+});
+
+function getStatusClass(status) {
+  const s = status ? status.toString().toLowerCase().trim() : '';
+  
+  // Logic: Check if the string STARTS with or CONTAINS the keyword
+  if (s.includes('pend')) return 'bg-warning text-dark';
+  
+  // This will match "Quoted: 09/04 17:45"
+  if (s.includes('quot') || s.includes('creat')) return 'bg-success text-white';
+  
+  if (s.includes('appr')) return 'bg-info text-white';
+  
+  return 'bg-secondary text-white';
+}
+
+
+
+////////////Sorting
+let currentSortCol = -1;
+let sortAsc = true;
+
+window.sortTable = function(colIndex) {
+  if (currentSortCol === colIndex) {
+    sortAsc = !sortAsc;
+  } else {
+    currentSortCol = colIndex;
+    sortAsc = true;
+  }
+
+  const data = window.getFilteredData();
+  const keys = ['order', 'fecha', 'faena', 'geo', 'pn', 'desc', 'cant', 'estado'];
+  const key = keys[colIndex];
+
+  data.sort((a, b) => {
+    let valA = a[key] || '';
+    let valB = b[key] || '';
+    
+    // Numeric sort for Order and Qty
+    if (key === 'order' || key === 'cant') {
+      return sortAsc ? valA - valB : valB - valA;
+    }
+    
+    // String sort for others
+    return sortAsc 
+      ? valA.toString().localeCompare(valB.toString())
+      : valB.toString().localeCompare(valA.toString());
+  });
+
+  window.renderHistoryTable(data);
+};
+
+
+  </script>
+</head>
+<body>
+
+  <div id="appLoader">
+    <div class="spinner-border text-primary" role="status"></div>
+    <div class="mt-3 fw-bold text-primary text-uppercase" data-i18n="loading">RECON ERP...</div>
+  </div>
+
+  <div class="sidebar d-flex flex-column shadow">
+  <div class="p-4 border-bottom border-secondary mb-3">
+    <h4 class="mb-0 fw-bold text-info" data-i18n="title">RECON ERP</h4>
+    <small class="text-muted text-uppercase">Inventory System</small>
+  </div>
+  
+  <div class="nav flex-column px-2">
+  <div id="nav-Dashboard" class="nav-link" onclick="loadModule('Dashboard')" data-i18n="m_dashboard">
+    <i class="bi bi-speedometer2 me-2"></i><span class="i18n-label">Dashboard</span>
+  </div>
+
+  <a class="nav-link" onclick="loadModule('Products', this)">
+    <i class="bi bi-box-seam me-2"></i>
+    <span data-i18n="m_products">Products</span>
+  </a>
+
+  <div class="nav-link" data-bs-toggle="collapse" data-bs-target="#reqSubmenu" aria-expanded="false" style="cursor:pointer;">
+    <i class="bi bi-file-earmark-text me-2"></i><span data-i18n="m_requirements" class="i18n-label">Requirements</span>
+    <i class="bi bi-chevron-down float-end small mt-1"></i>
+  </div>
+
+  <div class="collapse ps-3" id="reqSubmenu">
+    <div id="nav-CreateReq" class="nav-link py-1" onclick="loadModule('CreateReq')" data-i18n="m_create_req">
+      <i class="bi bi-plus-circle me-2"></i><span class="i18n-label">Create New</span>
+    </div>
+    <div id="nav-ViewReq" class="nav-link py-1" onclick="loadModule('ViewReq')" data-i18n="m_view_req">
+      <i class="bi bi-list-task me-2"></i><span class="i18n-label">View History</span>
+    </div>
+   
+  </div>
+
+
+  <li class="nav-item">
+    <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseProcurement">
+      <i class="bi bi-cart-check"></i>
+      <span data-i18n="m_procurement">Procurement</span>
+    </a>
+    <div id="collapseProcurement" class="collapse" data-bs-parent="#sidebarMenu">
+      <ul class="nav flex-column ms-3">
+        <li class="nav-item">
+          <div class="nav-link" onclick="loadModule('RFQ')">
+            <i class="bi bi-file-earmark-plus"></i>
+            <span data-i18n="m_create_quote">Create Quote</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#">
+            <i class="bi bi-file-check"></i>
+            <span data-i18n="m_create_po">Create PO</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </li>
+
+
+
+  <div class="nav-link" data-bs-toggle="collapse" data-bs-target="#adminSubmenu" aria-expanded="false" style="cursor:pointer;">
+  <i class="bi bi-gear-fill me-2"></i>
+  <span data-i18n="m_admin" class="i18n-label">Administration</span>
+  <i class="bi bi-chevron-down float-end small mt-1"></i>
+</div>
+
+<div class="collapse ps-3" id="adminSubmenu">
+  <ul class="nav flex-column small">
+    <li class="nav-item">
+      <a class="nav-link py-1" onclick="loadModule('ValSites', this)">
+        <i class="bi bi-geo-alt me-2"></i><span data-i18n="m_sites">Faenas / Sites</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1" onclick="loadModule('ValCategories', this)">
+        <i class="bi bi-tags me-2"></i><span data-i18n="m_cat">Categories</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1" onclick="loadModule('ValSubCats', this)">
+        <i class="bi bi-diagram-3 me-2"></i><span data-i18n="m_subcat">Sub Categories</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1" onclick="loadModule('ValBrands', this)">
+        <i class="bi bi-award me-2"></i><span data-i18n="m_brand">Brands</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1" onclick="loadModule('ValSuppliers', this)">
+        <i class="bi bi-truck me-2"></i><span data-i18n="m_supplier">Suppliers</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1" onclick="loadModule('ValCurrency', this)">
+        <i class="bi bi-currency-exchange me-2"></i><span data-i18n="m_currency">Moneda</span>
+      </a>
+    </li>
+  </ul>
+</div>
+</div>
+
+  <div class="mt-auto p-3 text-center border-top border-secondary">
+    <button id="langBtn" class="btn btn-outline-light btn-sm w-100" onclick="toggleLanguage()">English</button>
+  </div>
+</div>
+
+  <div class="main-wrapper">
+    <div id="mainContent" class="container-fluid"></div>
+  </div>
+
+  <div class="modal fade" id="emailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" data-i18n="modal_title">Confirm & Send Email</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold" data-i18n="modal_to">To:</label>
+            <input type="text" id="emailTo" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold" data-i18n="modal_subject">Subject:</label>
+            <input type="text" id="emailSubject" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold" data-i18n="modal_body">Message Body:</label>
+            <div id="emailPreview" contenteditable="true" style="border: 1px solid #ced4da; padding: 15px; min-height: 300px; border-radius: 5px; background: #fff;"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="modal_cancel">Cancel</button>
+          <button type="button" class="btn btn-success" onclick="confirmAndSend()" data-i18n="modal_send">Send & Save Order</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+
+ <div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title" id="prodModalTitle" data-i18n="modal_title">Product Details</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="productForm">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small fw-bold" data-i18n="geo">GEO CODE</label>
+              <input type="text" id="form_geo" class="form-control bg-light" readonly>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold" data-i18n="m_pn">PART NUMBER</label>
+              <input type="text" id="form_pn" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold" data-i18n="m_un">UNIT (UN)</label>
+              <input type="text" id="form_un" class="form-control">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold" data-i18n="m_cat">CATEGORY</label>
+              <select id="form_cat" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold" data-i18n="m_subcat">SUB CATEGORIA</label>
+              <select id="form_subcat" class="form-select"></select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold" data-i18n="m_brand">MARCA</label>
+              <select id="form_brand" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold" data-i18n="m_supplier">PROVEEDOR</label>
+              <select id="form_supplier" class="form-select"></select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-danger" data-i18n="m_min">MIN STOCK</label>
+              <input type="number" id="form_min" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold text-primary" data-i18n="m_max">MAX STOCK</label>
+              <input type="number" id="form_max" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold" data-i18n="m_eta">TIEMPO ENTREGA</label>
+              <input type="text" id="form_eta" class="form-control">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-bold" data-i18n="m_cost">COSTO</label>
+              <input type="number" id="form_cost_clp" class="form-control">
+            </div>
+            
+
+            <div class="col-md-12">
+              <label class="form-label small fw-bold" data-i18n="m_desc_en">DESC EN</label>
+              <textarea id="form_desc_en" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label small fw-bold" data-i18n="m_desc_es">DESC ES</label>
+              <textarea id="form_desc_es" class="form-control" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="modal_cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="window.saveProduct()" data-i18n="modal_save">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <?!= include('CreateReqJS'); ?>
+  <?!= include('ViewEditReqJS'); ?>
+  <?!= include('ProductsJS'); ?>
+  <?!= include('i18n'); ?>
+  <?!= getModuleHtml('AdminValJS'); ?>
+  <?!= include('RFQJS'); ?>
+
+
+</body>
+</html>

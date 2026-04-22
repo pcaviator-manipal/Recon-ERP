@@ -1,0 +1,79 @@
+<div class="container-fluid animate__animated animate__fadeIn">
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between px-md-1">
+            <div>
+              <h3 class="text-primary" id="dash-req-count">--</h3>
+              <p class="mb-0 fw-bold text-muted" data-i18n="d_pending_req">Pending Requirements</p>
+            </div>
+            <div class="align-self-center">
+              <i class="bi bi-list-task text-primary fs-1"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between px-md-1">
+            <div>
+              <h3 class="text-warning" id="dash-po-count">--</h3>
+              <p class="mb-0 fw-bold text-muted" data-i18n="d_pending_po">POs to Authorize</p>
+            </div>
+            <div class="align-self-center">
+              <i class="bi bi-cart-check text-warning fs-1"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between px-md-1">
+            <div>
+              <h3 class="text-success">$ --</h3>
+              <p class="mb-0 fw-bold text-muted" data-i18n="d_monthly_spend">Monthly Spend</p>
+            </div>
+            <div class="align-self-center">
+              <i class="bi bi-graph-up-arrow text-success fs-1"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-5">
+    <h5 class="fw-bold mb-3 text-secondary" data-i18n="recent_activity">Recent Activity</h5>
+    <div class="table-responsive bg-white p-3 rounded shadow-sm border">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th data-i18n="order_no">Order #</th>
+            <th data-i18n="site">Site</th>
+            <th data-i18n="item">Item</th>
+            <th data-i18n="status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="recent-activity-body">
+          <tr><td colspan="4" class="text-center text-muted py-4">No recent requests found</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Runs translation when this partial is injected into mainContent
+  (function() {
+    if(typeof updateUI === 'function') updateUI();
+  })();
+
+  
+</script>

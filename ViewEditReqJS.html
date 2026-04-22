@@ -1,0 +1,375 @@
+<script>
+
+
+  window.initViewReqModule = function() {
+  const tableBody = document.getElementById('historyTableBody');
+  const select = document.getElementById('filterFaena');
+
+  // 1. Visual Feedback: Dim the table to show "Loading" state
+  if (tableBody) tableBody.style.opacity = "0.5";
+
+  google.script.run.withSuccessHandler(function(data) {
+    // 2. Update Global Data
+    fullHistory = data || [];
+
+    // 3. Populate Faena Dropdown dynamically
+    if (select) {
+        const currentSelection = select.value; // Remember what user had selected
+        const faenas = [...new Set(fullHistory.map(item => item.faena).filter(f => f))];
+        
+        select.innerHTML = '<option value="">All Sites (Faenas)</option>' + 
+            faenas.sort().map(f => `<option value="${f}">${f}</option>`).join('');
+        
+        // Restore selection if it still exists in the new data
+        if (faenas.includes(currentSelection)) {
+            select.value = currentSelection;
+        }
+    }
+
+    // 4. Render Table and Restore Opacity
+    if (window.renderHistoryTable) {
+        window.renderHistoryTable(fullHistory);
+    }
+    
+    if (tableBody) tableBody.style.opacity = "1";
+    console.log("History synchronized with Spreadsheet.");
+
+  })
+  .withFailureHandler(function(err) {
+      if (tableBody) tableBody.style.opacity = "1";
+      console.error("Failed to sync history:", err);
+  })
+  .getRequirementsHistory();
+};
+
+window.renderHistoryTable = function(data) {
+  const tbody = document.getElementById('historyTableBody');
+  const editBtn = document.getElementById('editBtn'); // Get the edit button
+
+  if (!tbody || !data) {
+    console.error("Table body or data is missing.");
+    return;
+  }
+
+  // Update Selection Badge & Edit Button State
+  const badge = document.getElementById('selectionBadge');
+  if (badge) {
+    if (selectedOrders.size > 0) {
+      badge.classList.remove('d-none');
+      badge.innerText = `${selectedOrders.size} Order(s) Selected`;
+      // Enable Edit Button ONLY if exactly 1 order is selected
+      if (editBtn) editBtn.disabled = (selectedOrders.size !== 1);
+    } else {
+      badge.classList.add('d-none');
+      if (editBtn) editBtn.disabled = true;
+    }
+  }
+
+  tbody.innerHTML = data.map(r => {
+    const isSelected = selectedOrders.has(r.order.toString());
+    return `
+      <tr onclick="handleRowClick(event, '${r.order}')" 
+          ondblclick="window.openEditModal('${r.order}')" 
+          class="${isSelected ? 'row-selected' : ''}" 
+          data-order="${r.order}"
+          style="cursor: pointer; user-select: none;">
+        <td class="fw-bold">#${r.order}</td>
+        <td>${r.fecha}</td>
+        <td><span class="badge bg-light text-dark border">${r.faena}</span></td>
+        <td class="text-primary fw-bold">${r.geo || ''}</td>
+        <td>${r.pn || ''}</td>
+        <td class="small text-muted">${r.desc || ''}</td>
+        <td class="text-center">${r.cant}</td>
+        <td><span class="badge ${getStatusClass(r.estado)}">${r.estado}</span></td>
+      </tr>
+    `;
+  }).join('');
+};
+
+
+window.handleRowClick = function(event, orderId) {
+  // Prevent the "click outside" listener from firing when we click a row
+  event.stopPropagation();
+  
+  orderId = orderId.toString();
+  const isSelected = selectedOrders.has(orderId);
+
+  // Behavior A: Normal Click (No Ctrl/Cmd)
+  // Action: Clear everything and select ONLY this new order, 
+  // OR if it was already the only thing selected, deselect it.
+  if (!event.ctrlKey && !event.metaKey) {
+    const totalSelected = selectedOrders.size;
+    selectedOrders.clear();
+    
+    // If you clicked a row that was already selected alone, leave it cleared (deselect)
+    // Otherwise, select the new one.
+    if (!(totalSelected === 1 && isSelected)) {
+      selectedOrders.add(orderId);
+    }
+  } 
+  // Behavior B: Ctrl + Click
+  // Action: Toggle this specific order without touching others
+  else {
+    if (isSelected) {
+      selectedOrders.delete(orderId);
+    } else {
+      selectedOrders.add(orderId);
+    }
+  }
+
+  window.renderHistoryTable(window.getFilteredData());
+};
+
+
+window.filterHistory = function() {
+  window.renderHistoryTable(window.getFilteredData());
+};
+
+window.getFilteredData = function() {
+  if (!fullHistory || !Array.isArray(fullHistory)) {
+    console.warn("Data not ready yet or connection lost.");
+    return []; 
+  }
+
+  const searchTerm = (document.getElementById('historySearch')?.value || "").toLowerCase();
+  const faena = document.getElementById('filterFaena')?.value || "";
+  const status = (document.getElementById('filterStatus')?.value || "").toLowerCase(); // Convert filter choice to lowercase
+
+  return fullHistory.filter(r => {
+    // 1. Search Logic
+    const matchesSearch = !searchTerm || 
+      [r.order, r.geo, r.pn, r.desc].some(val => String(val || "").toLowerCase().includes(searchTerm));
+
+    // 2. Faena Logic (Exact match is usually fine here)
+    const matchesFaena = !faena || r.faena === faena;
+
+    // 3. Status Logic (FIXED: Use .includes() for the timestamp)
+    const rowStatus = String(r.estado || "").toLowerCase();
+    const matchesStatus = !status || rowStatus.includes(status);
+
+    return matchesSearch && matchesFaena && matchesStatus;
+  });
+};
+
+
+window.clearSelection = function() {
+  selectedOrders.clear();
+  window.renderHistoryTable(window.getFilteredData());
+};
+
+
+
+window.saveRequirementChanges = function() {
+  const orderId = document.getElementById('editModalOrderNum').innerText;
+  const saveBtn = document.querySelector('button[onclick="saveRequirementChanges()"]');
+  const spinner = document.getElementById('saveBtnSpinner');
+  
+  // 1. Declare variables ONLY ONCE
+  const itemRows = document.querySelectorAll('#editItemsTableBody tr');
+  
+  // 2. Gather Item Data (including Geo for each row)
+  const updatedItems = Array.from(itemRows).map(row => ({
+    geo: row.querySelector('.item-geo').value, 
+    pn: row.querySelector('.item-pn').value,
+    desc: row.querySelector('.item-desc').value,
+    cant: row.querySelector('.item-qty').value
+  }));
+
+  // 3. Gather Header Data
+  const updatedHeader = {
+    faena: document.getElementById('editFaena').value,
+    estado: document.getElementById('editStatus').value
+  };
+
+  if (updatedItems.length === 0) return alert("Requirement must have at least one item.");
+
+  // UI Feedback
+  if (spinner) spinner.classList.remove('d-none');
+  saveBtn.disabled = true;
+
+  // 4. Send to Server
+  google.script.run
+    .withSuccessHandler(function() {
+        // 1. Reset UI Elements
+        if (spinner) spinner.classList.add('d-none');
+        if (saveBtn) saveBtn.disabled = false;
+
+        // 2. Close the Modal safely
+        const modalElement = document.getElementById('editReqModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+
+        // 3. Trigger Refresh with a visual hint
+        if (window.initViewReqModule) {
+            console.log("Syncing changes with spreadsheet...");
+            window.initViewReqModule(); 
+        }
+
+        // 4. Success Notification
+        // Note: We use a small timeout or toast if possible so the alert 
+        // doesn't block the UI from redrawing the table.
+        setTimeout(() => {
+            alert("Requirement #" + orderId + " updated successfully!");
+        }, 100);
+    })
+    .withFailureHandler(function(err) {
+        if (spinner) spinner.classList.add('d-none');
+        if (saveBtn) saveBtn.disabled = false;
+        
+        console.error("Server Error:", err);
+        alert("Error saving: " + err.message);
+    })
+    .updateRequirementOnSheet(orderId, updatedHeader, updatedItems);
+
+}
+
+let currentEditOrder = null;
+
+window.openEditModal = function(orderId) {
+  const orderData = fullHistory.filter(r => r.order.toString() === orderId.toString());
+  if (orderData.length === 0) return;
+
+  const currentStatus = (orderData[0].estado || "").trim();
+  
+  // --- NEW LOGIC: Confirm if not Pending ---
+  if (currentStatus.toLowerCase() !== "pending") {
+    const proceed = confirm("This order is currently '" + currentStatus + "', not 'Pending'. Are you sure you want to edit it?");
+    if (!proceed) return; // User clicked 'Cancel'
+  }
+  // -----------------------------------------
+
+  document.getElementById('editModalOrderNum').innerText = orderId;
+  document.getElementById('editFaena').value = orderData[0].faena || "";
+  document.getElementById('editStatus').value = orderData[0].estado || "Pending";
+
+  const tbody = document.getElementById('editItemsTableBody');
+  tbody.innerHTML = '';
+  
+  orderData.forEach(item => {
+    addEditRow(item.pn, item.desc, item.cant, item.geo); 
+  });
+
+  new bootstrap.Modal(document.getElementById('editReqModal')).show();
+};
+
+
+
+window.handleEditClick = function() {
+  if (selectedOrders.size !== 1) return alert("Select exactly one order to edit");
+  const orderId = Array.from(selectedOrders)[0];
+  openEditModal(orderId);
+};
+
+
+
+window.handleEditSearch = function(query) {
+  const resultsContainer = document.getElementById('editSearchResults');
+  if (!query || query.length < 2) {
+    resultsContainer.classList.add('d-none');
+    return;
+  }
+
+  // Ensure we use inventoryCache 
+  const matches = inventoryCache.filter(i => 
+    (i.p + (i.en || "") + (i.es || "")).toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 10);
+
+  if (matches.length > 0) {
+    resultsContainer.innerHTML = matches.map(i => `
+      <li class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" 
+          style="cursor:pointer" 
+          onclick="selectItemForEdit('${i.p}', '${currentLang === 'es' ? (i.es || i.en) : (i.en || i.es)}', '${i.g}')">
+        <div>
+          <strong class="text-primary">${i.p}</strong> - <small class="badge bg-light text-dark border">${i.g || ''}</small><br>
+          <small class="text-muted">${currentLang === 'es' ? (i.es || i.en) : (i.en || i.es)}</small>
+        </div>
+        <i class="bi bi-plus-lg text-success"></i>
+      </li>`).join('');
+    resultsContainer.classList.remove('d-none');
+  } else {
+    resultsContainer.classList.add('d-none');
+  }
+};
+
+
+window.handleExport = function(moduleType, format, event) {
+  // 1. KILL the browser event immediately
+  if (event) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+  }
+
+  // 2. Data Configuration
+  var configs = {
+    'REQ': {
+      name: 'Requirements',
+      data: (selectedOrders && selectedOrders.size > 0) 
+            ? fullHistory.filter(function(r) { return selectedOrders.has(r.order.toString()); }) 
+            : (window.getFilteredData ? window.getFilteredData() : []),
+      headers: ["Order #", "Date", "Site", "Geo", "P/N", "Description", "Qty", "Status"],
+      keys: ["order", "fecha", "faena", "geo", "pn", "desc", "cant", "estado"]
+    }
+  };
+
+  var config = configs[moduleType];
+  if (!config || !config.data || config.data.length === 0) {
+    alert("Please select or filter data first.");
+    return;
+  }
+
+  // 3. UI Feedback (Using simple text to avoid HTML parsing errors)
+  var btn = document.getElementById('exportDropdownBtn');
+  var originalText = "Export";
+  if (btn) {
+    originalText = btn.innerText;
+    btn.innerText = "Processing...";
+    btn.disabled = true;
+  }
+
+  // 4. Server Call
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) {
+        btn.innerText = originalText;
+        btn.disabled = false;
+      }
+      alert("✅ Success: " + res.fileName + " saved to Exports folder.");
+    })
+    .withFailureHandler(function(err) {
+      if (btn) {
+        btn.innerText = originalText;
+        btn.disabled = false;
+      }
+      alert("System Error: " + err);
+    })
+    .master_ExportToDrive(config.data, config.headers, config.keys, config.name, format);
+};
+
+
+window.selectItemForEdit = function(pn, desc, geo) {
+  addEditRow(pn || '', desc, 1, geo); // Pass the individual Geo Code here 
+  document.getElementById('editItemSearch').value = '';
+  document.getElementById('editSearchResults').classList.add('d-none');
+};
+
+
+
+
+window.addEditRow = function(pn = '', desc = '', cant = 1, geo = '') {
+  const tbody = document.getElementById('editItemsTableBody');
+  const row = document.createElement('tr');
+  
+  // Ensure 'value' attributes are set to the arguments provided
+  row.innerHTML = `
+    <td><input type="text" class="form-control form-control-sm item-geo" value="${geo}"></td>
+    <td><input type="text" class="form-control form-control-sm item-pn" value="${pn}"></td>
+    <td><input type="text" class="form-control form-control-sm item-desc" value="${desc}"></td>
+    <td><input type="number" class="form-control form-control-sm item-qty" value="${cant}"></td>
+    <td><button type="button" class="btn btn-sm text-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+  `;
+  tbody.appendChild(row);
+};
+ 
+</script>

@@ -1,0 +1,190 @@
+<script>
+
+  window.processSearch = function() {
+    const query = document.getElementById('itemSearch').value.toLowerCase().trim();
+    const tbody = document.getElementById('searchResults');
+    if (!query || query.length < 2) { 
+      tbody.innerHTML = ''; 
+      return; 
+    }
+
+    // Ensure currentLang is initialized
+    const lang = typeof currentLang !== 'undefined' ? currentLang : 'es';
+
+    // Filter local cache
+    const matches = inventoryCache.filter(i => 
+      (i.geo + i.pn + (i.en || "") + (i.es || "")).toLowerCase().includes(query)
+    ).slice(0, 15);
+
+    tbody.innerHTML = matches.map(i => `
+      <tr>
+        <td class="fw-bold">${i.geo}</td>
+        <td>${i.pn}</td>
+        <td><small>${lang === 'es' ? (i.es || i.en) : (i.en || i.es)}</small></td>
+        <td class="${i.stock > 0 ? 'text-success' : 'text-danger'} fw-bold">${i.stock}</td>
+        <td><input type="number" id="q_${i.id}" value="1" class="form-control form-control-sm" style="width:70px"></td>
+        <td><button class="btn btn-primary btn-sm" onclick="window.addItemToCart(${i.id})">Add</button></td>
+      </tr>`).join('');
+  };
+
+
+
+  window.addItemToCart = function(id) {
+    const qtyInput = document.getElementById('q_' + id);
+    if (!qtyInput) return;
+    
+    const qtyToAdd = parseInt(qtyInput.value);
+    const item = inventoryCache.find(i => i.id === id);
+    const lang = typeof currentLang !== 'undefined' ? currentLang : 'es';
+    
+    if (item && qtyToAdd > 0) {
+      const existingEntry = localCart.find(c => c.geo === item.geo);  // Changed from item.g
+
+      if (existingEntry) {
+        existingEntry.qty += qtyToAdd;
+      } else {
+        localCart.push({
+          geo: item.geo,   // Changed from item.g
+          pn: item.pn,     // Changed from item.p
+          desc: lang === 'es' ? (item.es || item.en) : (item.en || item.es),
+          qty: qtyToAdd,
+          id: item.id
+        });
+      }
+
+      qtyInput.value = 1;
+      if (window.updateCartUI) window.updateCartUI();
+    }
+  };
+
+
+
+   window.updateCartUI = function() {
+    const body = document.getElementById('cartBody');
+    const btn = document.getElementById('btnSubmit');
+    
+    if (btn) btn.disabled = (localCart.length === 0);
+    if (!body) return;
+
+    if (localCart.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Your cart is empty</td></tr>';
+      return;
+    }
+
+    body.innerHTML = localCart.map((c, idx) => `
+      <tr>
+        <td class="fw-bold text-primary" style="width: 15%">${c.geo}</td>
+        <td style="width: 15%">${c.pn}</td>
+        <td style="width: 45%">${c.desc}</td>
+        <td class="text-center" style="width: 15%"><strong>${c.qty}</strong></td>
+        <td class="text-end" style="width: 10%">
+          <button class="btn btn-sm text-danger" onclick="window.removeItem(${idx})">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+  };
+
+  window.removeItem = function(idx) {
+    localCart.splice(idx, 1);
+    if (typeof renderCartUI === 'function') window.updateCartUI();
+  };
+
+  // --- EMAIL PREVIEW LOGIC [cite: 33, 34, 35, 36] ---
+    window.finalizeReq = function() {
+      const site = document.getElementById('siteSelect').value;
+      if (localCart.length === 0) return alert(i18n('cart_empty') || "Cart is empty");
+
+      const orderCategory = localCart[0].category || "General";
+      const btn = document.getElementById('btnSubmit');
+      btn.innerText = i18n('loading') || "Loading...";
+      btn.disabled = true;
+
+      Promise.all([
+        new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRecipientsByCategory(orderCategory)),
+        new Promise(resolve => google.script.run.withSuccessHandler(resolve).getUserSignature())
+      ]).then(([recipients, signature]) => {
+        let rows = localCart.map(i => `
+          <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding:8px;">${i.geo}</td>
+            <td style="padding:8px;">${i.pn}</td>
+            <td style="padding:8px;">${i.desc}</td>
+            <td style="padding:8px; text-align:center;">${i.qty}</td>
+          </tr>`).join('');
+        
+        let emailHtml = `
+          <div style="font-family: sans-serif; color: #333;">
+            <p>${i18n('email_body_lead')} <b>${site}</b></p>
+            <div contenteditable="false" style="background-color: #fafafa; border: 1px dashed #ccc; padding: 5px;">
+              <table style="width:100%; border-collapse:collapse; border:1px solid #ddd; background: #fff;">
+                <thead style="background:#f2f2f2;">
+                  <tr>
+                    <th style="padding:8px;">${i18n('geo')}</th>
+                    <th style="padding:8px;">${i18n('pn')}</th>
+                    <th style="padding:8px;">${i18n('desc')}</th>
+                    <th style="padding:8px;">${i18n('qty')}</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+              <small style="color: #888;">${i18n('table_locked_msg')}</small>
+            </div>
+            <br>
+            <div class="gmail_signature">${signature}</div>
+          </div>`;
+
+        currentPayload = { faena: site, items: [...localCart], recipient: recipients };
+        
+        document.getElementById('emailTo').value = recipients;
+        document.getElementById('emailSubject').value = i18n('email_subject_prefix') + site;
+        document.getElementById('emailPreview').innerHTML = emailHtml;
+        
+        if (typeof updateUI === 'function') updateUI();
+        new bootstrap.Modal(document.getElementById('emailModal')).show();
+        
+        btn.innerText = i18n('submit_req');
+        btn.disabled = false;
+      });
+    };
+
+
+
+
+
+    // --- FINAL PROCESSING [cite: 42, 43, 44, 88] ---
+    window.confirmAndSend = function() {
+      const finalPayload = {
+        // These names must match your code.gs expectations
+        items: currentPayload.items,      // Needed for saveRequirementToSheet 
+        faena: currentPayload.faena,      // Needed for saveRequirementToSheet [cite: 122]
+        recipient: document.getElementById('emailTo').value, // For MailApp 
+        subject: document.getElementById('emailSubject').value,
+        emailBody: document.getElementById('emailPreview').innerHTML
+      };
+
+      const btn = document.querySelector('#emailModal .btn-success');
+      btn.innerText = i18n('loading') || "Sending...";
+      btn.disabled = true;
+
+      // Call the correct function name found in your code.gs 
+      google.script.run
+        .withSuccessHandler(() => {
+          localCart = [];
+          bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide();
+          loadModule('Dashboard');
+        })
+        .withFailureHandler((err) => {
+          alert("Error: " + err.message);
+          btn.disabled = false;
+          btn.innerText = i18n('modal_send');
+        })
+        .processFinalOrder(finalPayload); 
+    };
+
+  
+
+
+
+
+ 
+</script>

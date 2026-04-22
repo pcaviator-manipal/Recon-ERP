@@ -1,0 +1,183 @@
+<script>
+  let fullInventory = []; 
+  let currentPage = 1;
+  const rowsPerPage = 50; 
+
+  window.initProductsModule = function() {
+    google.script.run.withSuccessHandler(function(data) {
+      console.log("Full Data Sample:", data[0]); // Check property names here
+      fullInventory = data || [];
+      attemptDropdownPopulation();
+      window.renderProducts();
+    }).getInventoryData(); 
+  };
+
+  function attemptDropdownPopulation(retries = 20) {
+  const domReady =
+    document.getElementById("filterCategory") ||
+    document.getElementById("form_cat");
+
+  if (window.CachedDataVal && domReady) {
+    populateAllValidationDropdowns();
+  } else if (retries > 0) {
+    setTimeout(() => attemptDropdownPopulation(retries - 1), 300);
+  } else {
+    console.warn("Dropdowns not populated: validation cache or DOM not ready.");
+  }
+}
+
+  function populateAllValidationDropdowns() {
+  const val = window.CachedDataVal;
+  if (!val) return;
+
+  const fillOptions = (ids, list, placeholderKey, isObject = false) => {
+    const placeholder = i18n(placeholderKey);
+    let uniqueList = [];
+
+    list = list || []; // ✅ prevent errors if undefined/null
+
+    if (isObject) {
+      uniqueList = [...new Map(list.map(item => [item.name, item])).values()];
+    } else {
+      uniqueList = [...new Set(list.filter(item => item))];
+    }
+
+    const html =
+      `<option value="">${placeholder}</option>` +
+      uniqueList.map(item => {
+        const name = isObject ? item.name : item;
+        return `<option value="${name}">${name}</option>`;
+      }).join('');
+
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    });
+  };
+
+  // ✅ ACTUALLY POPULATE the dropdowns
+  fillOptions(['filterCategory', 'form_cat'], val.categories, 'p_all_cats', true);
+  fillOptions(['filterSubCategory', 'form_subcat'], val.subCategories, 'p_all_subcats', false);
+  fillOptions(['filterBrand', 'form_brand'], val.brands, 'p_all_brands', false);
+
+  // you don't have a translation key for "all suppliers" currently,
+  // so reuse supplier label or add a new key in i18n
+  fillOptions(['filterSupplier', 'form_supplier'], val.suppliers, 'supplier', true);
+}
+
+  window.renderProducts = function() {
+  const tbody = document.getElementById('productsTableBody');
+  const search = document.getElementById('prodSearch').value.toLowerCase();
+  
+  const catF = document.getElementById('filterCategory').value;
+  const subF = document.getElementById('filterSubCategory').value;
+  const brandF = document.getElementById('filterBrand').value;
+  const suppF = document.getElementById('filterSupplier').value;
+
+  let filtered = fullInventory.filter(i => {
+    // FIXED: Use correct keys 'en' and 'es' for search filtering
+    const combinedSearch = (i.geo + (i.pn || '') + (i.en || '') + (i.es || '')).toLowerCase();
+    const matchS = !search || combinedSearch.includes(search);
+    const matchC = !catF || i.category === catF;
+    const matchSub = !subF || i.sub_categoria === subF;
+    const matchB = !brandF || i.marca === brandF;
+    const matchSupp = !suppF || i.proveedor === suppF;
+    return matchS && matchC && matchSub && matchB && matchSupp;
+  });
+
+  const paginated = filtered.slice((currentPage-1)*rowsPerPage, currentPage*rowsPerPage);
+
+  tbody.innerHTML = paginated.map(item => `
+    <tr>
+      <td class="fw-bold text-primary">${item.geo}</td>
+      <td>${item.pn || ''}</td>
+      <td>${item.category || ''}</td>
+      <td>${item.sub_categoria || ''}</td>
+      <td>${item.marca || ''}</td>
+      <td>
+        <div class="fw-bold small text-dark">${item.en || ''}</div>
+        <div class="text-muted small" style="font-style: italic;">${item.es || ''}</div>
+      </td>
+      <td>${item.un || ''}</td>
+      <td class="text-center">${item.stock || 0}</td>
+      <td class="text-center">$${Number(item.costo_clp || 0).toLocaleString()}</td>
+      <td>${item.proveedor || ''}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.editProduct('${item.geo}')">
+          <i class="bi bi-pencil"></i>
+        </button>
+      </td>
+    </tr>`).join('');
+  
+  renderPaginationControls(Math.ceil(filtered.length / rowsPerPage), filtered.length);
+};
+
+  window.editProduct = function(gCode) {
+    const item = fullInventory.find(i => i.geo == gCode);
+    if (!item) return;
+
+    // Mapping to index.txt modal IDs
+    document.getElementById('form_geo').value = item.geo;
+    document.getElementById('form_geo').readOnly = true;
+    document.getElementById('form_pn').value = item.pn || "";
+    document.getElementById('form_un').value = item.un || "";
+    document.getElementById('form_cat').value = item.category || "";
+    document.getElementById('form_subcat').value = item.sub_categoria || "";
+    document.getElementById('form_brand').value = item.marca || "";
+    document.getElementById('form_supplier').value = item.proveedor || "";
+    document.getElementById('form_min').value = item.min || 0;
+    document.getElementById('form_max').value = item.max || 0;
+    document.getElementById('form_cost_clp').value = item.costo_clp || 0;
+    
+    // RESTORED: Both English and Spanish descriptions
+    document.getElementById('form_desc_en').value = item.en || "";
+    document.getElementById('form_desc_es').value = item.es || "";
+
+    new bootstrap.Modal(document.getElementById('productModal')).show();
+  };
+
+  window.saveProduct = function() {
+    const data = {
+      geo: document.getElementById('form_geo').value,
+      pn: document.getElementById('form_pn').value,
+      en: document.getElementById('form_desc_en').value,
+      es: document.getElementById('form_desc_es').value,
+      category: document.getElementById('form_cat').value,
+      sub_categoria: document.getElementById('form_subcat').value,
+      marca: document.getElementById('form_brand').value,
+      proveedor: document.getElementById('form_supplier').value,
+      un: document.getElementById('form_un').value,
+      costo_clp: document.getElementById('form_cost_clp').value,
+      min: document.getElementById('form_min').value,
+      max: document.getElementById('form_max').value
+    };
+
+    google.script.run.withSuccessHandler(() => {
+      const modal = bootstrap.Modal.getInstance(document.getElementById('productModal'));
+      if (modal) modal.hide();
+      window.initProductsModule();
+    }).updateInventoryItem(data);
+  };
+
+  window.openAddProductModal = function() {
+    document.getElementById('productForm').reset();
+    document.getElementById('form_geo').readOnly = false;
+    new bootstrap.Modal(document.getElementById('productModal')).show();
+  };
+
+  window.handleSearchInput = () => { currentPage = 1; window.renderProducts(); };
+  window.changePage = (p) => { currentPage = p; window.renderProducts(); };
+
+  function renderPaginationControls(totalPages, totalItems) {
+    const container = document.getElementById('paginationControls');
+    document.getElementById('paginationInfo').innerText = `Total: ${totalItems}`;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+        html += `<button type="button" class="btn ${i === currentPage ? 'btn-primary' : 'btn-outline-secondary'} btn-sm mx-1" onclick="window.changePage(${i})">${i}</button>`;
+      }
+    }
+    container.innerHTML = html;
+  }
+</script>

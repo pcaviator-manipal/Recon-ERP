@@ -1,0 +1,197 @@
+<script>
+const translations = {
+  en: {
+    title: "RECON ERP",
+    m_dashboard: "Dashboard",
+    m_requirements: "Requirements", // NEW Parent
+    m_create_req: "Create New",
+    m_view_req: "View History",      // NEW Submenu
+    m_edit_req: "Edit / Manage",    // NEW Submenu
+    m_procurement: "Procurement",
+    m_create_quote: "Create Quote",
+    m_create_po: "Create PO",
+    m_receive: "Receive Items",
+    lang_toggle: "Español",
+    site: "Site / Faena",
+    pn: "P/N",
+    geo: "Geo Code",
+    desc: "Description",
+    qty: "Quantity",
+    add_item: "Add Item",
+    submit_req: "Submit Requirement",
+    preview_email: "Preview Email",  // FIXED: Missing translation
+    loading: "Loading...",
+    d_pending_req: "Pending Requirements",
+    d_pending_po: "POs to Authorize",
+    d_monthly_spend: "Monthly Spend",
+    modal_title: "Confirm & Send Email",
+    modal_to: "To:",
+    modal_subject: "Subject:",
+    modal_body: "Message Body:",
+    modal_cancel: "Cancel",
+    modal_send: "Send & Save Order",
+    email_subject_prefix: "RECON Requirement: ",
+    email_body_lead: "Dear all, please find attached the requirement for Site: ",
+    table_locked_msg: "Table data is locked.",
+    search_label: "Search Part / Geo / Desc",
+    stock: "Stock",
+    recent_activity: "Recent Activity",
+    order_no: "Order #",
+    item: "Item",
+    status: "Status",
+    cart_empty: "Cart is empty",
+    m_products: "Products",
+    category: "Category",
+    sub_category: "Sub Category",
+    brand: "Brand",
+    supplier: "Supplier",
+    eta: "Lead Time (Days)",
+    min_stock: "Min Stock",
+    max_stock: "Max Stock",
+    stock_out: "Stock Out",
+    unit: "Unit",
+    cost: "Cost",
+    m_pn: "Part Number",
+    m_cat: "Category",
+    m_subcat: "Sub Category",
+    m_brand: "Brand",
+    m_desc_en: "Description (EN)",
+    m_desc_es: "Description (ES)",
+    m_un: "Unit",
+    m_min: "Min Stock",
+    m_max: "Max Stock",
+    m_stock: "Stock",
+    m_out: "Stock Out",
+    m_cost: "Cost",
+    m_clp: "CLP",
+    m_supplier: "Supplier",
+    m_eta: "Lead Time",
+    m_actions: "Actions",
+    p_header: "Master Product Inventory",
+    p_sub: "Manage your central catalog and stock levels",
+    p_add_item: "Add New Item",
+    p_search_placeholder: "Search Geo, P/N, or Description...",
+    p_all_cats: "All Categories",
+    p_all_subcats: "All Sub Categories",
+    p_all_brands: "All Brands",
+    modal_save: "Save Changes",
+    p_footer_info: "Double-click any row to quickly edit product details.",
+    m_admin: "Administration",
+  m_sites: "Sites / Faenas",
+  m_currency: "Currencies",
+    
+  },
+  es: {
+    title: "ERP RECON",
+    m_dashboard: "Panel de Control",
+    m_requirements: "Requerimientos", // NEW Parent
+    m_create_req: "Crear Nuevo",
+    m_view_req: "Ver Historial",      // NEW Submenu
+    m_edit_req: "Editar / Gestionar", // NEW Submenu
+    m_procurement: "Adquisiciones",
+    m_create_quote: "Crear Cotización",
+    m_create_po: "Crear OC",
+    m_receive: "Recepción de Items",
+    lang_toggle: "English",
+    site: "Faena / Site",
+    pn: "P/N",
+    geo: "Geo Code",
+    desc: "Descripción",
+    qty: "Cantidad",
+    add_item: "Añadir Item",
+    submit_req: "Enviar Requerimiento",
+    preview_email: "Vista Previa",    // FIXED: Missing translation
+    loading: "Cargando...",
+    d_pending_req: "Requerimientos Pendientes",
+    d_pending_po: "OC por Autorizar",
+    d_monthly_spend: "Gasto Mensual",
+    modal_title: "Confirmar y Enviar Email",
+    modal_to: "Para:",
+    modal_subject: "Asunto:",
+    modal_body: "Cuerpo del Mensaje:",
+    modal_cancel: "Cancelar",
+    modal_send: "Enviar y Guardar Pedido",
+    email_subject_prefix: "Requerimiento RECON: ",
+    email_body_lead: "Estimados, se adjunta requerimiento para la Faena: ",
+    table_locked_msg: "Datos de la tabla bloqueados.",
+    search_label: "Buscar Parte / Geo / Desc",
+    stock: "Stock",
+    recent_activity: "Actividad Reciente",
+    order_no: "Pedido #",
+    item: "Item",
+    status: "Estado",
+    cart_empty: "Carrito vacío",
+    m_products: "Productos",
+    category: "Categoría",
+    sub_category: "Subcategoría",
+    brand: "Marca",
+    supplier: "Proveedor",
+    eta: "Tiempo Entrega",
+    min_stock: "Stock Mínimo",
+    max_stock: "Stock Máximo",
+    stock_out: "Stock Fuera",
+    unit: "Unidad",
+    cost: "Costo",
+    m_pn: "Número de Parte",
+    m_cat: "Categoría",
+    m_subcat: "Subcategoría",
+    m_brand: "Marca",
+    m_desc_en: "Descripción (EN)",
+    m_desc_es: "Descripción (ES)",
+    m_un: "Unidad",
+    m_min: "Stock Mín",
+    m_max: "Stock Máx",
+    m_stock: "Stock",
+    m_out: "Stock Fuera",
+    m_cost: "Costo",
+    m_clp: "CLP",
+    m_supplier: "Proveedor",
+    m_eta: "Tiempo Entrega",
+    m_actions: "Acciones",
+    p_header: "Inventario Maestro de Productos",
+    p_sub: "Administre su catálogo central y niveles de stock",
+    p_add_item: "Agregar Nuevo Ítem",
+    p_search_placeholder: "Buscar Geo, P/N o Descripción...",
+    p_all_cats: "Todas las Categorías",
+    p_all_subcats: "Todas las Subcategorías",
+    p_all_brands: "Todas las Marcas",
+    modal_save: "Guardar Cambios",
+    p_footer_info: "Haga doble clic en cualquier fila para editar rápidamente los detalles del producto.",
+    m_admin: "Administración",
+  m_sites: "Faenas / Sitios",
+  m_currency: "Monedas",
+    
+  }
+};
+
+if (typeof currentLang === 'undefined') currentLang = 'es';
+
+function i18n(key) { 
+  if (!translations[currentLang]) return key;
+  return translations[currentLang][key] || key; 
+}
+
+function toggleLanguage() {
+  currentLang = (currentLang === 'es') ? 'en' : 'es';
+  updateUI();
+}
+
+/**
+ * FIXED: This now looks for a <span> inside the element with the data-i18n attribute.
+ * This prevents the translation from deleting your <i> icon tags.
+ */
+function updateUI() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const translation = i18n(key);
+    
+    // TARGET ONLY THE SPAN: This protects your <i> icons!
+    const labelSpan = el.querySelector('.i18n-label');
+    if (labelSpan) {
+      labelSpan.innerText = translation;
+    } else {
+      el.innerText = translation;
+    }
+  });
+}
+</script>
