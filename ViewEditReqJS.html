@@ -17,7 +17,7 @@
         const currentSelection = select.value; // Remember what user had selected
         const faenas = [...new Set(fullHistory.map(item => item.faena).filter(f => f))];
         
-        select.innerHTML = '<option value="">All Sites (Faenas)</option>' + 
+        select.innerHTML = '<option value="">' + i18n('all_sites') + '</option>' + 
             faenas.sort().map(f => `<option value="${f}">${f}</option>`).join('');
         
         // Restore selection if it still exists in the new data
@@ -56,7 +56,7 @@ window.renderHistoryTable = function(data) {
   if (badge) {
     if (selectedOrders.size > 0) {
       badge.classList.remove('d-none');
-      badge.innerText = `${selectedOrders.size} Order(s) Selected`;
+      badge.innerText = `${selectedOrders.size} ${i18n('orders_selected')}`;
       // Enable Edit Button ONLY if exactly 1 order is selected
       if (editBtn) editBtn.disabled = (selectedOrders.size !== 1);
     } else {
@@ -181,7 +181,7 @@ window.saveRequirementChanges = function() {
     estado: document.getElementById('editStatus').value
   };
 
-  if (updatedItems.length === 0) return alert("Requirement must have at least one item.");
+  if (updatedItems.length === 0) return alert(i18n('req_min_one_item'));
 
   // UI Feedback
   if (spinner) spinner.classList.remove('d-none');
@@ -211,7 +211,7 @@ window.saveRequirementChanges = function() {
         // Note: We use a small timeout or toast if possible so the alert 
         // doesn't block the UI from redrawing the table.
         setTimeout(() => {
-            alert("Requirement #" + orderId + " updated successfully!");
+            alert(i18n('req_updated_prefix') + orderId + i18n('req_updated_suffix'));
         }, 100);
     })
     .withFailureHandler(function(err) {
@@ -219,7 +219,7 @@ window.saveRequirementChanges = function() {
         if (saveBtn) saveBtn.disabled = false;
         
         console.error("Server Error:", err);
-        alert("Error saving: " + err.message);
+        alert(i18n('error_saving_prefix') + err.message);
     })
     .updateRequirementOnSheet(orderId, updatedHeader, updatedItems);
 
@@ -235,8 +235,8 @@ window.openEditModal = function(orderId) {
   
   // --- NEW LOGIC: Confirm if not Pending ---
   if (currentStatus.toLowerCase() !== "pending") {
-    const proceed = confirm("This order is currently '" + currentStatus + "', not 'Pending'. Are you sure you want to edit it?");
-    if (!proceed) return; // User clicked 'Cancel'
+    const proceed = confirm(i18n('confirm_edit_prefix') + currentStatus + i18n('confirm_edit_suffix'));
+    if (!proceed) return;// User clicked 'Cancel'
   }
   // -----------------------------------------
 
@@ -257,7 +257,7 @@ window.openEditModal = function(orderId) {
 
 
 window.handleEditClick = function() {
-  if (selectedOrders.size !== 1) return alert("Select exactly one order to edit");
+  if (selectedOrders.size !== 1) return alert(i18n('select_one_order'));
   const orderId = Array.from(selectedOrders)[0];
   openEditModal(orderId);
 };
@@ -315,16 +315,15 @@ window.handleExport = function(moduleType, format, event) {
 
   var config = configs[moduleType];
   if (!config || !config.data || config.data.length === 0) {
-    alert("Please select or filter data first.");
+    alert(i18n('filter_data_first'));
     return;
   }
 
-  // 3. UI Feedback (Using simple text to avoid HTML parsing errors)
+  // 3. UI Feedback
   var btn = document.getElementById('exportDropdownBtn');
-  var originalText = "Export";
+  var labelEl = btn ? (btn.querySelector('.i18n-label') || btn) : null;
   if (btn) {
-    originalText = btn.innerText;
-    btn.innerText = "Processing...";
+    if (labelEl) labelEl.innerText = i18n('processing');
     btn.disabled = true;
   }
 
@@ -332,17 +331,17 @@ window.handleExport = function(moduleType, format, event) {
   google.script.run
     .withSuccessHandler(function(res) {
       if (btn) {
-        btn.innerText = originalText;
+        if (labelEl) labelEl.innerText = i18n('export');
         btn.disabled = false;
       }
-      alert("✅ Success: " + res.fileName + " saved to Exports folder.");
+      alert(i18n('export_success_prefix') + res.fileName + i18n('export_success_suffix'));
     })
     .withFailureHandler(function(err) {
       if (btn) {
-        btn.innerText = originalText;
+        if (labelEl) labelEl.innerText = i18n('export');
         btn.disabled = false;
       }
-      alert("System Error: " + err);
+      alert(i18n('sys_error') + err);
     })
     .master_ExportToDrive(config.data, config.headers, config.keys, config.name, format);
 };

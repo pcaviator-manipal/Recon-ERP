@@ -60,9 +60,7 @@
   fillOptions(['filterSubCategory', 'form_subcat'], val.subCategories, 'p_all_subcats', false);
   fillOptions(['filterBrand', 'form_brand'], val.brands, 'p_all_brands', false);
 
-  // you don't have a translation key for "all suppliers" currently,
-  // so reuse supplier label or add a new key in i18n
-  fillOptions(['filterSupplier', 'form_supplier'], val.suppliers, 'supplier', true);
+  fillOptions(['filterSupplier', 'form_supplier'], val.suppliers, 'p_all_suppliers', true);
 }
 
   window.renderProducts = function() {
@@ -170,7 +168,7 @@
 
   function renderPaginationControls(totalPages, totalItems) {
     const container = document.getElementById('paginationControls');
-    document.getElementById('paginationInfo').innerText = `Total: ${totalItems}`;
+    document.getElementById('paginationInfo').innerText = `${i18n('total_label')} ${totalItems}`;
     if (totalPages <= 1) { container.innerHTML = ''; return; }
     let html = '';
     for (let i = 1; i <= totalPages; i++) {

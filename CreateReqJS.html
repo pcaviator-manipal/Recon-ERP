@@ -23,7 +23,7 @@
         <td><small>${lang === 'es' ? (i.es || i.en) : (i.en || i.es)}</small></td>
         <td class="${i.stock > 0 ? 'text-success' : 'text-danger'} fw-bold">${i.stock}</td>
         <td><input type="number" id="q_${i.id}" value="1" class="form-control form-control-sm" style="width:70px"></td>
-        <td><button class="btn btn-primary btn-sm" onclick="window.addItemToCart(${i.id})">Add</button></td>
+        <td><button class="btn btn-primary btn-sm" onclick="window.addItemToCart(${i.id})">${i18n('add_btn')}</button></td>
       </tr>`).join('');
   };
 
@@ -67,7 +67,7 @@
     if (!body) return;
 
     if (localCart.length === 0) {
-      body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Your cart is empty</td></tr>';
+      body.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">${i18n('cart_empty')}</td></tr>`;
       return;
     }
 
@@ -174,7 +174,7 @@
           loadModule('Dashboard');
         })
         .withFailureHandler((err) => {
-          alert("Error: " + err.message);
+          alert(i18n('error_prefix') + err.message);
           btn.disabled = false;
           btn.innerText = i18n('modal_send');
         })

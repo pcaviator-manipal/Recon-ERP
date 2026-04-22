@@ -201,7 +201,7 @@ window.initDashboard = function() {
       // 3. Update the Recent Activity Table
       if (activityBody) {
         if (history.length === 0) {
-          activityBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No recent requests found</td></tr>';
+          activityBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">${i18n('no_recent_requests')}</td></tr>`;
         } else {
           // Takes the 5 most recent entries
           activityBody.innerHTML = history.slice(0, 5).map(r => `
@@ -408,7 +408,7 @@ window.sortTable = function(colIndex) {
 </div>
 
   <div class="mt-auto p-3 text-center border-top border-secondary">
-    <button id="langBtn" class="btn btn-outline-light btn-sm w-100" onclick="toggleLanguage()">English</button>
+    <button id="langBtn" class="btn btn-outline-light btn-sm w-100" onclick="toggleLanguage()" data-i18n="lang_toggle">English</button>
   </div>
 </div>
 
@@ -452,7 +452,7 @@ window.sortTable = function(colIndex) {
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-dark text-white">
-        <h5 class="modal-title" id="prodModalTitle" data-i18n="modal_title">Product Details</h5>
+        <h5 class="modal-title" id="prodModalTitle" data-i18n="p_modal_title">Product Details</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
